@@ -1,0 +1,23 @@
+2025-07-24 00:50:47,467 INFO ConfigWatcher iniciado con archivo: config/default_messages.ini
+2025-07-24 00:50:47,918 DEBUG Error cargando configuracion: Expecting value: line 1 column 1 (char 0)
+2025-07-24 00:50:47,918 ERROR Error cargando configuracion: Expecting value: line 1 column 1 (char 0)
+Traceback (most recent call last):
+  File "D:\MyProjects\A_Multibot\Launcher.py", line 294, in load_data
+    self.data = json.load(f)
+                ^^^^^^^^^^^^
+  File "C:\Users\Azzlaer\AppData\Local\Programs\Python\Python311\Lib\json\__init__.py", line 293, in load
+    return loads(fp.read(),
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Azzlaer\AppData\Local\Programs\Python\Python311\Lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Azzlaer\AppData\Local\Programs\Python\Python311\Lib\json\decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Azzlaer\AppData\Local\Programs\Python\Python311\Lib\json\decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+2025-07-24 00:50:47,946 INFO Aplicacion iniciada correctamente
+2025-07-24 00:51:15,107 DEBUG Monitoreo detenido
+2025-07-24 00:51:15,108 INFO Monitoreo detenido
+2025-07-24 00:51:15,108 INFO Aplicacion cerrada por el usuario
