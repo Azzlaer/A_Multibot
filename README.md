@@ -17,7 +17,12 @@
 9. 📜 [Licencia](#-licencia)  
 10. 📬 [Contacto](#-contacto)  
 
----
+## 📑 IMAGENES
+
+![Descripci贸n de la imagen](https://github.com/Azzlaer/A_Multibot/blob/main/Capturas/Screenshot_1.png)
+![Descripci贸n de la imagen](https://github.com/Azzlaer/A_Multibot/blob/main/Capturas/Screenshot_2.png)
+![Descripci贸n de la imagen](https://github.com/Azzlaer/A_Multibot/blob/main/Capturas/Screenshot_3.png)
+![Descripci贸n de la imagen](https://github.com/Azzlaer/A_Multibot/blob/main/Capturas/Screenshot_4.png)
 
 ## 📖 Descripción
 
