@@ -1,0 +1,34 @@
+[
+    {
+        "logfile": "C:/Servidores/logs/d2nbot.log",
+        "webhook": "https://discord.com/api/webhooks/1372878021727485972/TxuT09nYOEoDVDDmgG6RfW84VqXu4WZGBh2C2UXDOChEGFJDWQpyplCgLyO_ymGy8hps"
+    },
+    {
+        "logfile": "C:/Servidores/logs/d2tbot.log",
+        "webhook": "https://discord.com/api/webhooks/1331847829119045662/mcwHxGOFieq3YZ9UVCy-IjX8MBx65Rpq2dVF4hpsMivFqAB_lgQILJHH1hgU9JVQtwVp"
+    },
+    {
+        "logfile": "C:/Servidores/logs/d2xbot.log",
+        "webhook": "https://discord.com/api/webhooks/1331850308279861288/aMcWG28cRuzKvOAlxC2T--vmrMLR9RLNP_V5YoCX7uocQ5FpdyoXEU_jX4_jv354Zz0a"
+    },
+    {
+        "logfile": "C:/Servidores/logs/d2jbot.log",
+        "webhook": "https://discord.com/api/webhooks/1334031889866031104/Jpbj7-kXn3qHAKEXeblvBEiJeCc_-jjnMTqPC3k8QpIRmzYC3AXlZMGLs3mpgelYWHeJ"
+    },
+    {
+        "logfile": "C:/Servidores/logs/d2ibot.log",
+        "webhook": "https://discord.com/api/webhooks/1330407603150524427/GJtt03xgX2YbmcmCyXSV3gzFjpro_VrUDfvWZOCeizDs7ImBlYDpiqD3nVWpWXH0Bnfs"
+    },
+    {
+        "logfile": "C:/Servidores/logs/d2sbot.log",
+        "webhook": "https://discord.com/api/webhooks/1347105599481184289/jRJlhiKCZxu8-ou9picAYgVTAdwj62jDgSKjo973Xb-CZ0VTFaF0NKSoKkmorweOwYHH"
+    },
+    {
+        "logfile": "C:/Servidores/logs/d2zbot.log",
+        "webhook": "https://discord.com/api/webhooks/1331874773302775808/rWsVElWCjg_TSjl6vAYgq51kreb4syDDN6AG3xA7npRI1gudDjCbPcokriIPu_3TUROh"
+    },
+    {
+        "logfile": "C:/Servidores/logs/ssjuegos.log",
+        "webhook": "https://discord.com/api/webhooks/1411239426843082793/ZVDv_3uq-yDaqaJlBNBhy-OTdmhaSRfAd2JpdJnQqFSfCkot7FIuFmSE9pQZeRWHGPJN"
+    }
+]
