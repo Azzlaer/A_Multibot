@@ -1,0 +1,26 @@
+2025-10-25 00:12:33,017 INFO Error iniciando GUI: No module named 'pystray'
+2025-10-25 00:12:33,017 INFO Ejecutando en modo consola como respaldo...
+2025-10-25 00:12:33,017 INFO GhostMonitorLOG iniciado en modo consola (--nogui).
+2025-10-25 00:12:33,030 INFO [ConfigWatcher] Usando archivo: config/default_messages.ini
+2025-10-25 00:12:33,030 INFO No existe el archivo de configuración JSON: data/settings.json
+2025-10-25 00:13:01,947 INFO Error iniciando GUI: No module named 'pystray'
+2025-10-25 00:13:01,947 INFO Ejecutando en modo consola como respaldo...
+2025-10-25 00:13:01,947 INFO GhostMonitorLOG iniciado en modo consola (--nogui).
+2025-10-25 00:13:01,947 INFO [ConfigWatcher] Usando archivo: config/default_messages.ini
+2025-10-25 00:13:01,957 INFO Monitor iniciado para: C:/Servidores/logs/d2nbot.log
+2025-10-25 00:13:01,957 INFO [GhostMonitorLOG] Archivo no encontrado: C:/Servidores/logs/d2nbot.log
+2025-10-25 00:13:01,957 INFO Monitor iniciado para: C:/Servidores/logs/d2tbot.log
+2025-10-25 00:13:01,957 INFO [GhostMonitorLOG] Archivo no encontrado: C:/Servidores/logs/d2tbot.log
+2025-10-25 00:13:01,957 INFO [GhostMonitorLOG] Archivo no encontrado: C:/Servidores/logs/d2xbot.log
+2025-10-25 00:13:01,957 INFO Monitor iniciado para: C:/Servidores/logs/d2xbot.log
+2025-10-25 00:13:01,957 INFO Monitor iniciado para: C:/Servidores/logs/d2jbot.log
+2025-10-25 00:13:01,957 INFO [GhostMonitorLOG] Archivo no encontrado: C:/Servidores/logs/d2jbot.log
+2025-10-25 00:13:01,957 INFO Monitor iniciado para: C:/Servidores/logs/d2ibot.log
+2025-10-25 00:13:01,957 INFO [GhostMonitorLOG] Archivo no encontrado: C:/Servidores/logs/d2ibot.log
+2025-10-25 00:13:01,957 INFO Monitor iniciado para: C:/Servidores/logs/d2sbot.log
+2025-10-25 00:13:01,957 INFO [GhostMonitorLOG] Archivo no encontrado: C:/Servidores/logs/d2sbot.log
+2025-10-25 00:13:01,957 INFO [GhostMonitorLOG] Archivo no encontrado: C:/Servidores/logs/d2zbot.log
+2025-10-25 00:13:01,957 INFO Monitor iniciado para: C:/Servidores/logs/d2zbot.log
+2025-10-25 00:13:01,957 INFO Monitor iniciado para: C:/Servidores/logs/ssjuegos.log
+2025-10-25 00:13:01,957 INFO Monitoreo activo. Presiona Ctrl+C para salir.
+2025-10-25 00:13:01,957 INFO [GhostMonitorLOG] Archivo no encontrado: C:/Servidores/logs/ssjuegos.log
