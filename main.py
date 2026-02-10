@@ -1,6 +1,5 @@
 import logging
 import sys
-import traceback
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, simpledialog
 import threading
@@ -22,9 +21,10 @@ CONFIG_INI_PATH = "config/default_messages.ini"
 CONFIG_JSON_PATH = "data/settings.json"
 MAIN_CONFIG_PATH = "config/config.ini"
 
-# ============================
+
+# ==========================
 #  CONFIGURACIÓN GLOBAL
-# ============================
+# ==========================
 
 class AppConfig:
     def __init__(self, ini_path=MAIN_CONFIG_PATH):
@@ -40,9 +40,9 @@ class AppConfig:
     def create_default(self):
         os.makedirs(os.path.dirname(self.ini_path), exist_ok=True)
         self.config["APP"] = {
-            "mode": "GUI",  # GUI | TERMINAL | SERVICE
+            "mode": "GUI",          # GUI | TERMINAL | SERVICE
             "log_level": "INFO",
-            "auto_start": "false"
+            "auto_start": "false"   # true = auto comenzar monitoreo en GUI
         }
         self.config["PATHS"] = {
             "config_ini": CONFIG_INI_PATH,
@@ -55,9 +55,9 @@ class AppConfig:
         return self.config.get(section, key, fallback=fallback)
 
 
-# ============================
+# ==========================
 #  LOGGING GLOBAL
-# ============================
+# ==========================
 
 def setup_logging(level="INFO"):
     lvl = getattr(logging, level.upper(), logging.INFO)
@@ -71,9 +71,9 @@ def setup_logging(level="INFO"):
     logging.info(f"{APP_NAME} iniciado en nivel {level}")
 
 
-# ============================
-#  CLASES PRINCIPALES
-# ============================
+# ==========================
+#  MANEJO DE EXCEPCIONES
+# ==========================
 
 def log_exception(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
@@ -81,8 +81,13 @@ def log_exception(exc_type, exc_value, exc_traceback):
         return
     logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
+
 sys.excepthook = log_exception
 
+
+# ==========================
+#  CLASE DE WATCHER
+# ==========================
 
 class ConfigWatcher:
     def __init__(self, filepath):
@@ -104,10 +109,14 @@ class ConfigWatcher:
             if current_mtime != self.last_mtime:
                 self.last_mtime = current_mtime
                 self.config = self.load_config()
-                logging.info(f"{APP_NAME}: Config messages updated")
+                logging.info("Default messages updated")
                 return True
         return False
 
+
+# ==========================
+#  HILO DE MONITOREO
+# ==========================
 
 class MonitorThread(threading.Thread):
     def __init__(self, log_path, webhook, config_watcher, stop_event, output_callback=None):
@@ -120,14 +129,22 @@ class MonitorThread(threading.Thread):
 
     def run(self):
         if not os.path.exists(self.log_path):
-            msg = f"{APP_NAME}: File not found: {self.log_path}"
+            msg = f"{APP_NAME}: archivo no encontrado: {self.log_path}"
             logging.error(msg)
             if self.output_callback:
                 self.output_callback(msg)
             return
+
+        # 🔔 Log a Discord cuando arranca este monitor
+        startup_msg = f"{APP_NAME}: monitor iniciado para {self.log_path}"
+        self.send_webhook(startup_msg)
+        logging.info(startup_msg)
+        if self.output_callback:
+            self.output_callback(startup_msg)
+
         try:
             with open(self.log_path, "r", encoding="utf-8") as f:
-                f.seek(0, 2)
+                f.seek(0, 2)  # Ir al final del archivo
                 while not self.stop_event.is_set():
                     line = f.readline()
                     if not line:
@@ -135,10 +152,19 @@ class MonitorThread(threading.Thread):
                         continue
                     self.process_line(line.strip())
         except Exception as e:
-            logging.error(f"{APP_NAME}: Error monitoring {self.log_path}: {e}", exc_info=True)
+            logging.error(f"{APP_NAME}: Error monitorizando {self.log_path}: {e}", exc_info=True)
             if self.output_callback:
                 self.output_callback(f"Error monitorizando {self.log_path}: {e}")
 
+    def send_webhook(self, msg):
+        try:
+            res = requests.post(self.webhook, json={"content": msg})
+            if res.status_code not in (200, 204):
+                logging.error(f"{APP_NAME}: Webhook error {res.status_code}: {res.text}")
+        except Exception as e:
+            logging.error(f"{APP_NAME}: Webhook send error: {e}", exc_info=True)
+
+    # ===== Detección de eventos ===== #
     def process_line(self, line):
         if self.config_watcher.check_for_changes():
             pass
@@ -146,6 +172,7 @@ class MonitorThread(threading.Thread):
         cfg = self.config_watcher.config
 
         try:
+            # Crear partida
             match_game = re.search(r"creating game \[(.*)\]", line)
             if match_game:
                 game_name = match_game.group(1)
@@ -156,6 +183,7 @@ class MonitorThread(threading.Thread):
                     self.output_callback(f"[{self.log_path}] {msg}")
                 return
 
+            # Entrada jugador
             match_player = re.search(r"player \[(.*)\|(.+?)\] joined the game", line)
             if match_player:
                 user = match_player.group(1)
@@ -167,6 +195,7 @@ class MonitorThread(threading.Thread):
                     self.output_callback(f"[{self.log_path}] {msg}")
                 return
 
+            # Salida jugador
             match_leave = re.search(r"deleting player \[(.*)\]:", line)
             if match_leave:
                 user = match_leave.group(1)
@@ -177,28 +206,40 @@ class MonitorThread(threading.Thread):
                     self.output_callback(f"[{self.log_path}] {msg}")
                 return
 
+            # 🔥 Mensajes de chat
+            # Soporta:
+            # [GAME: DotA v6.85n #1] [Lobby] [User]: msg
+            # [GAME: Pulpin War Arena #4] (22:31) [All] [User]: msg
+            match_chat = re.search(
+                r"\[GAME:\s*(.*?)\](?:.*?\((\d{1,2}:\d{2})\))?.*?\[(Lobby|All|Team|Observer)\]\s*\[(.*?)\]:\s*(.+)",
+                line
+            )
+            if match_chat:
+                game = match_chat.group(1).strip()
+                user = match_chat.group(4).strip()
+                message = match_chat.group(5).strip()
+
+                msg = f"[{game}] {user}: {message}"
+
+                self.send_webhook(msg)
+                if self.output_callback:
+                    self.output_callback(f"[{self.log_path}] {msg}")
+                return
+
         except Exception as e:
             logging.error(f"Error procesando linea: {line} - {e}", exc_info=True)
 
-    def send_webhook(self, msg):
-        try:
-            res = requests.post(self.webhook, json={"content": msg})
-            if res.status_code not in (200, 204):
-                logging.error(f"{APP_NAME}: Webhook error {res.status_code}: {res.text}")
-        except Exception as e:
-            logging.error(f"{APP_NAME}: Webhook send error: {e}", exc_info=True)
 
+# ==========================
+#  GUI PRINCIPAL
+# ==========================
 
 class GhostMonitorApp:
-    def __init__(self, root):
+    def __init__(self, root, app_config=None):
         self.root = root
         self.root.title(APP_NAME)
-        self.style = ttk.Style()
-        self.style.theme_use('clam')
 
-        self.dark_mode = tk.BooleanVar(value=False)
-        self.minimize_tray = tk.BooleanVar(value=False)
-
+        self.app_config = app_config
         self.config_watcher = ConfigWatcher(CONFIG_INI_PATH)
         self.monitors = []
         self.monitor_stop_events = []
@@ -206,16 +247,16 @@ class GhostMonitorApp:
 
         self.setup_ui()
         self.load_settings()
-        self.apply_theme()
 
-        self.tray_icon = None
-        if pystray:
-            self.setup_tray_icon()
+        # 🔁 AutoStart monitoreo si está activado en config.ini
+        auto_start_str = "false"
+        if self.app_config:
+            auto_start_str = self.app_config.get("APP", "auto_start", "false")
+        if auto_start_str.lower() == "true":
+            self.log_output("AutoStart activo: iniciando monitoreo automáticamente...")
+            self.start_monitoring()
 
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
-        logging.info("Aplicacion iniciada correctamente")
-
-    # ====== GUI SETUP ======
+    # ---- GUI ---- #
     def setup_ui(self):
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill='both', expand=True, padx=10, pady=10)
@@ -224,14 +265,6 @@ class GhostMonitorApp:
         notebook.add(self.tab_logs, text="Monitoreo Logs")
         self.setup_logs_tab()
 
-        self.tab_messages = ttk.Frame(notebook)
-        notebook.add(self.tab_messages, text="Mensajes")
-        self.setup_messages_tab()
-
-        self.tab_config = ttk.Frame(notebook)
-        notebook.add(self.tab_config, text="Configuracion")
-        self.setup_config_tab()
-
         self.tab_output = ttk.Frame(notebook)
         notebook.add(self.tab_output, text="Logs en vivo")
         self.setup_output_tab()
@@ -239,128 +272,61 @@ class GhostMonitorApp:
     def setup_logs_tab(self):
         frame = self.tab_logs
         columns = ("logfile", "webhook")
-        self.tree = ttk.Treeview(frame, columns=columns, show='headings', height=12)
+        self.tree = ttk.Treeview(frame, columns=columns, show="headings", height=12)
         self.tree.heading("logfile", text="Archivo LOG")
         self.tree.heading("webhook", text="Webhook URL")
         self.tree.column("logfile", width=350)
         self.tree.column("webhook", width=350)
-        self.tree.grid(row=0, column=0, columnspan=4, pady=10, padx=10)
+        self.tree.grid(row=0, column=0, columnspan=4, padx=10, pady=10)
 
-        ttk.Button(frame, text="Añadir", command=self.add_log).grid(row=1, column=0, padx=5, sticky='ew')
-        ttk.Button(frame, text="Eliminar", command=self.delete_selected_log).grid(row=1, column=1, padx=5, sticky='ew')
-        ttk.Button(frame, text="Cargar", command=self.load_data).grid(row=1, column=2, padx=5, sticky='ew')
-        ttk.Button(frame, text="Guardar", command=self.save_data).grid(row=1, column=3, padx=5, sticky='ew')
-        ttk.Button(frame, text="Iniciar Monitoreo", command=self.start_monitoring).grid(row=2, column=0, columnspan=4, sticky='ew', pady=10)
-
-    def setup_messages_tab(self):
-        frame = self.tab_messages
-        self.msg_entries = {}
-        row = 0
-        for key in sorted(self.config_watcher.config["MESSAGES"].keys()):
-            ttk.Label(frame, text=key).grid(row=row, column=0, sticky='w', padx=10, pady=5)
-            entry = ttk.Entry(frame, width=60)
-            entry.insert(0, self.config_watcher.config["MESSAGES"][key])
-            entry.grid(row=row, column=1, sticky='ew', padx=10, pady=5)
-            self.msg_entries[key] = entry
-            row += 1
-        ttk.Button(frame, text="Guardar mensajes", command=self.save_messages).grid(row=row, column=0, columnspan=2, pady=10)
-
-    def setup_config_tab(self):
-        frame = self.tab_config
-        ttk.Checkbutton(frame, text="Modo oscuro", variable=self.dark_mode, command=self.toggle_dark_mode).grid(row=0, column=0, sticky='w', padx=10, pady=10)
-        ttk.Checkbutton(frame, text="Minimizar a bandeja", variable=self.minimize_tray).grid(row=1, column=0, sticky='w', padx=10, pady=10)
-        ttk.Button(frame, text="Salir", command=self.exit_app).grid(row=2, column=0, sticky='ew', padx=10, pady=20)
+        ttk.Button(frame, text="Añadir", command=self.add_log).grid(row=1, column=0, padx=5, pady=5)
+        ttk.Button(frame, text="Guardar", command=self.save_data).grid(row=1, column=1, padx=5, pady=5)
+        ttk.Button(frame, text="Iniciar", command=self.start_monitoring).grid(row=1, column=2, padx=5, pady=5)
+        ttk.Button(frame, text="Detener", command=self.stop_monitoring).grid(row=1, column=3, padx=5, pady=5)
 
     def setup_output_tab(self):
         frame = self.tab_output
-        self.txt_output = tk.Text(frame, state='disabled', bg='#1e1e1e', fg='white')
-        self.txt_output.pack(fill='both', expand=True)
+        self.txt_output = tk.Text(frame, state="disabled", bg="#1e1e1e", fg="white")
+        self.txt_output.pack(fill="both", expand=True)
 
     def add_log(self):
-        log_path = filedialog.askopenfilename(title="Selecciona archivo LOG")
+        log_path = filedialog.askopenfilename(title="Seleccionar archivo LOG")
         if log_path:
-            webhook = simpledialog.askstring("Webhook", "Ingrese URL webhook Discord:")
+            webhook = simpledialog.askstring("Webhook", "Ingrese URL Webhook Discord:")
             if webhook:
                 self.tree.insert("", "end", values=(log_path, webhook))
                 self.data.append({"logfile": log_path, "webhook": webhook})
-
-    def delete_selected_log(self):
-        selected = self.tree.selection()
-        for sel in selected:
-            vals = self.tree.item(sel)["values"]
-            self.data = [d for d in self.data if d["logfile"] != vals[0]]
-            self.tree.delete(sel)
 
     def save_data(self):
         self.data = []
         for child in self.tree.get_children():
             vals = self.tree.item(child)["values"]
             self.data.append({"logfile": vals[0], "webhook": vals[1]})
-        try:
-            os.makedirs(os.path.dirname(CONFIG_JSON_PATH), exist_ok=True)
-            with open(CONFIG_JSON_PATH, "w", encoding="utf-8") as f:
-                json.dump(self.data, f, indent=4, ensure_ascii=False)
-            self.log_output(f"Configuración guardada en {CONFIG_JSON_PATH}")
-        except Exception as e:
-            self.log_output(f"Error guardando configuración: {e}")
 
-    def load_data(self):
-        if os.path.exists(CONFIG_JSON_PATH):
-            try:
-                with open(CONFIG_JSON_PATH, "r", encoding="utf-8") as f:
-                    self.data = json.load(f)
-                self.tree.delete(*self.tree.get_children())
-                for entry in self.data:
-                    self.tree.insert("", "end", values=(entry["logfile"], entry["webhook"]))
-                self.log_output(f"Configuración cargada desde {CONFIG_JSON_PATH}")
-            except Exception as e:
-                self.log_output(f"Error cargando configuración: {e}")
+        os.makedirs(os.path.dirname(CONFIG_JSON_PATH), exist_ok=True)
+        with open(CONFIG_JSON_PATH, "w", encoding="utf-8") as f:
+            json.dump(self.data, f, indent=4)
 
-    def save_messages(self):
-        for key, entry in self.msg_entries.items():
-            self.config_watcher.config["MESSAGES"][key] = entry.get()
-        try:
-            os.makedirs(os.path.dirname(CONFIG_INI_PATH), exist_ok=True)
-            with open(CONFIG_INI_PATH, "w", encoding="utf-8") as f:
-                self.config_watcher.config.write(f)
-            self.log_output("Mensajes guardados correctamente")
-        except Exception as e:
-            self.log_output(f"Error guardando mensajes: {e}")
-
-    def toggle_dark_mode(self):
-        self.apply_theme()
-
-    def apply_theme(self):
-        if self.dark_mode.get():
-            bg = "#222222"
-            fg = "white"
-            self.root.configure(bg=bg)
-            style = ttk.Style()
-            style.theme_use("clam")
-            style.configure(".", background=bg, foreground=fg, fieldbackground=bg)
-            self.txt_output.configure(bg="#1e1e1e", fg="white")
-        else:
-            bg = "SystemButtonFace"
-            self.root.configure(bg=bg)
-            style = ttk.Style()
-            style.theme_use("default")
-            self.txt_output.configure(bg="white", fg="black")
+        self.log_output("Configuración guardada en settings.json")
 
     def start_monitoring(self):
-        if self.monitor_stop_events:
-            self.stop_monitoring()
-
         self.save_data()
-        self.monitors.clear()
-        self.monitor_stop_events.clear()
+        self.stop_monitoring()
 
         for entry in self.data:
             stop_event = threading.Event()
-            thread = MonitorThread(entry["logfile"], entry["webhook"], self.config_watcher, stop_event, self.log_output)
+            thread = MonitorThread(
+                entry["logfile"],
+                entry["webhook"],
+                self.config_watcher,
+                stop_event,
+                self.log_output
+            )
             thread.start()
             self.monitors.append(thread)
             self.monitor_stop_events.append(stop_event)
-            self.log_output(f"Monitor iniciado: {entry['logfile']}")
+
+            self.log_output(f"Monitor iniciado para {entry['logfile']}")
 
     def stop_monitoring(self):
         for event in self.monitor_stop_events:
@@ -370,70 +336,48 @@ class GhostMonitorApp:
         self.log_output("Monitoreo detenido")
 
     def log_output(self, msg):
-        self.txt_output.configure(state='normal')
+        self.txt_output.configure(state="normal")
         self.txt_output.insert("end", msg + "\n")
         self.txt_output.see("end")
-        self.txt_output.configure(state='disabled')
-        logging.debug(msg)
-
-    def exit_app(self):
-        self.stop_monitoring()
-        logging.info("Aplicacion cerrada por el usuario")
-        self.root.destroy()
-
-    def setup_tray_icon(self):
-        if not pystray:
-            return
-        image = Image.new('RGB', (64, 64), color='black')
-        d = ImageDraw.Draw(image)
-        d.rectangle([16, 16, 48, 48], fill="white")
-
-        def on_quit(icon, item):
-            self.exit_app()
-            icon.stop()
-
-        def on_show(icon, item):
-            self.root.deiconify()
-
-        menu = pystray.Menu(
-            pystray.MenuItem('Mostrar', on_show),
-            pystray.MenuItem('Salir', on_quit)
-        )
-        self.tray_icon = pystray.Icon(APP_NAME, image, menu=menu)
-
-    def on_close(self):
-        if self.minimize_tray.get() and pystray:
-            self.root.withdraw()
-            self.tray_icon.run_detached()
-            self.log_output("Minimizado a bandeja")
-        else:
-            self.exit_app()
+        self.txt_output.configure(state="disabled")
+        logging.info(msg)
 
     def load_settings(self):
-        self.load_data()
-        self.dark_mode.set(False)
-        self.minimize_tray.set(False)
+        if os.path.exists(CONFIG_JSON_PATH):
+            try:
+                with open(CONFIG_JSON_PATH, "r", encoding="utf-8") as f:
+                    self.data = json.load(f)
+                self.tree.delete(*self.tree.get_children())
+                for entry in self.data:
+                    self.tree.insert("", "end", values=(entry["logfile"], entry["webhook"]))
+                self.log_output("Configuración cargada desde settings.json")
+            except Exception as e:
+                self.log_output(f"Error cargando configuración: {e}")
+                logging.error(f"Error cargando configuración: {e}", exc_info=True)
 
 
-# ============================
-#  MODOS DE EJECUCIÓN
-# ============================
+# ==========================
+#  EJECUCIÓN POR MODO
+# ==========================
 
 def run_gui(config):
     root = tk.Tk()
-    app = GhostMonitorApp(root)
+    app = GhostMonitorApp(root, app_config=config)
     root.mainloop()
+
 
 def run_terminal(config):
     print(f"🧠 Iniciando {APP_NAME} en modo TERMINAL")
     watcher = ConfigWatcher(CONFIG_INI_PATH)
+    stop_event = threading.Event()
+
     if not os.path.exists(CONFIG_JSON_PATH):
         print("❌ No se encontró settings.json")
         return
+
     with open(CONFIG_JSON_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    stop_event = threading.Event()
     threads = []
     for entry in data:
         log_path = entry.get("logfile")
@@ -443,6 +387,7 @@ def run_terminal(config):
             t.start()
             threads.append(t)
             print(f"🟢 Monitor iniciado: {log_path}")
+
     try:
         while not stop_event.is_set():
             time.sleep(1)
@@ -453,37 +398,44 @@ def run_terminal(config):
             t.join()
         print("✅ Monitoreo detenido correctamente.")
 
+
 def run_service(config):
     watcher = ConfigWatcher(CONFIG_INI_PATH)
     stop_event = threading.Event()
-    threads = []
     print(f"🧩 {APP_NAME} ejecutándose en modo SERVICE...")
-    while True:
-        try:
-            if os.path.exists(CONFIG_JSON_PATH):
-                with open(CONFIG_JSON_PATH, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-            else:
-                data = []
-            if threads:
-                for t in threads:
-                    t.stop_event.set()
-                threads.clear()
-            for entry in data:
-                log_path = entry.get("logfile")
-                webhook = entry.get("webhook")
-                if log_path and webhook:
-                    t = MonitorThread(log_path, webhook, watcher, stop_event)
-                    t.start()
-                    threads.append(t)
-            time.sleep(30)
-        except Exception as e:
-            logging.error(f"Error en modo servicio: {e}", exc_info=True)
-            time.sleep(10)
 
-# ============================
+    # Servicio simple: levanta monitores según settings.json y los mantiene vivos
+    if not os.path.exists(CONFIG_JSON_PATH):
+        print("❌ No se encontró settings.json, nada que monitorear.")
+        return
+
+    with open(CONFIG_JSON_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    threads = []
+    for entry in data:
+        log_path = entry.get("logfile")
+        webhook = entry.get("webhook")
+        if log_path and webhook:
+            t = MonitorThread(log_path, webhook, watcher, stop_event)
+            t.start()
+            threads.append(t)
+            print(f"🟢 Monitor (SERVICE) iniciado: {log_path}")
+
+    try:
+        while not stop_event.is_set():
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print("\n🟥 Deteniendo servicio...")
+        stop_event.set()
+        for t in threads:
+            t.join()
+        print("✅ Servicio detenido correctamente.")
+
+
+# ==========================
 #  PUNTO DE ENTRADA
-# ============================
+# ==========================
 
 if __name__ == "__main__":
     cfg = AppConfig()

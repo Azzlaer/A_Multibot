@@ -1,0 +1,6 @@
+2025-12-07 01:49:22,097 INFO GhostMonitorLOG iniciado en nivel INFO
+2025-12-07 01:49:22,241 INFO ConfigWatcher iniciado con archivo: config/default_messages.ini
+2025-12-07 01:49:22,272 INFO Configuración cargada desde settings.json
+2026-02-09 23:19:49,078 INFO GhostMonitorLOG iniciado en nivel INFO
+2026-02-09 23:19:49,224 INFO ConfigWatcher iniciado con archivo: config/default_messages.ini
+2026-02-09 23:19:49,261 INFO Configuración cargada desde settings.json
